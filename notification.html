@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>紧急通知</title>
     <style>
+        /* 保持原来的样式，只新增必要的 */
         * {
             margin: 0;
             padding: 0;
@@ -19,7 +20,7 @@
             align-items: center;
             height: 100vh;
             overflow: hidden;
-            user-select: none; /* 防止选择文本 */
+            user-select: none;
         }
         
         .notification-container {
@@ -53,15 +54,42 @@
             letter-spacing: 1px;
         }
         
-        .message {
-            font-size: 1.3em;
-            line-height: 1.8;
-            margin-bottom: 50px;
-            white-space: pre-line;
+        /* 新增：通知计数 */
+        .notification-count {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        /* 新增：通知列表容器 */
+        .notifications-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 30px;
+        }
+        
+        /* 新增：单个通知项 */
+        .notification-item {
             background: rgba(255, 255, 255, 0.1);
-            padding: 30px;
-            border-radius: 15px;
-            backdrop-filter: blur(5px);
+            margin: 15px 0;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #fff;
+            text-align: left;
+        }
+        
+        .notification-item .time {
+            font-size: 0.9em;
+            opacity: 0.7;
+            margin-bottom: 10px;
+        }
+        
+        .notification-item .message {
+            font-size: 1.1em;
+            line-height: 1.5;
+            white-space: pre-line;
         }
         
         .confirm-btn {
@@ -77,15 +105,12 @@
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
             text-transform: uppercase;
             letter-spacing: 1px;
+            margin: 10px;
         }
         
         .confirm-btn:hover {
             transform: translateY(-3px) scale(1.05);
             box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
-        }
-        
-        .confirm-btn:active {
-            transform: translateY(-1px) scale(1.02);
         }
         
         .confirm-btn:focus {
@@ -99,73 +124,135 @@
             opacity: 0.8;
             font-style: italic;
         }
+        
+        /* 新增：滚动条样式 */
+        .notifications-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .notifications-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        
+        .notifications-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body>
     <div class="notification-container">
         <div class="icon">🚨</div>
         <div class="title">紧急系统通知</div>
-        <div class="message" id="message-content">
-            正在加载通知内容...
+        
+        <!-- 新增：通知计数 -->
+        <div class="notification-count" id="notification-count">
+            共 0 条待处理通知
         </div>
+        
+        <!-- 新增：通知列表 -->
+        <div class="notifications-list" id="notifications-list">
+            <!-- 通知项将动态添加到这里 -->
+        </div>
+        
         <div class="button-container">
-            <button class="confirm-btn" id="confirm-button" onclick="confirmNotification()">
-                ✓ 确认处理
+            <button class="confirm-btn" id="confirm-button" onclick="confirmFirstNotification()">
+                ✓ 处理第一条
+            </button>
+            <button class="confirm-btn" style="background: #ff9800; font-size: 1.1em; padding: 15px 30px;" onclick="confirmAllNotifications()">
+                ✓ 处理所有
             </button>
         </div>
+        
         <div class="footer">
-            请点击确认按钮后才能继续使用系统
+            请处理通知后才能继续使用系统
         </div>
     </div>
     
     <script>
         const { ipcRenderer } = require('electron');
-        let isProcessing = false; // 防止重复点击
+        let currentNotifications = [];
+        let isProcessing = false;
         
-        // 接收并显示消息
-        ipcRenderer.on('show-message', (event, message) => {
-            console.log('收到通知消息:', message);
-            document.getElementById('message-content').textContent = message;
-            
-            // 重置处理状态
-            isProcessing = false;
-            document.getElementById('confirm-button').disabled = false;
-            
-            // 聚焦到确认按钮
-            setTimeout(() => {
-                document.getElementById('confirm-button').focus();
-            }, 500);
+        // 接收通知列表（修改原来的单条接收）
+        ipcRenderer.on('show-notifications', (event, notifications) => {
+            console.log('收到通知列表:', notifications);
+            currentNotifications = notifications;
+            updateNotificationDisplay();
         });
         
-        function confirmNotification() {
-            if (isProcessing) {
-                console.log('正在处理中，请勿重复点击');
-                return;
+        // 新增：更新通知显示
+        function updateNotificationDisplay() {
+            const countElement = document.getElementById('notification-count');
+            const listElement = document.getElementById('notifications-list');
+            const confirmButton = document.getElementById('confirm-button');
+            
+            // 更新计数
+            countElement.textContent = `共 ${currentNotifications.length} 条待处理通知`;
+            
+            // 更新列表
+            listElement.innerHTML = '';
+            currentNotifications.forEach((notification, index) => {
+                const notificationDiv = document.createElement('div');
+                notificationDiv.className = 'notification-item';
+                notificationDiv.innerHTML = `
+                    <div class="time">#${index + 1} | ${notification.timestamp}</div>
+                    <div class="message">${notification.message}</div>
+                `;
+                listElement.appendChild(notificationDiv);
+            });
+            
+            // 更新按钮文本
+            if (currentNotifications.length > 0) {
+                confirmButton.textContent = `✓ 处理第一条 (${currentNotifications.length} 条待处理)`;
             }
+            
+            // 滚动到顶部显示最新通知
+            listElement.scrollTop = 0;
+        }
+        
+        function confirmFirstNotification() {
+            if (isProcessing || currentNotifications.length === 0) return;
             
             isProcessing = true;
             const btn = document.getElementById('confirm-button');
-            
-            // 禁用按钮防止重复点击
             btn.disabled = true;
             btn.textContent = '处理中...';
-            btn.style.opacity = '0.6';
             
-            // 发送确认消息
+            // 处理第一条通知
+            const firstNotification = currentNotifications[0];
             setTimeout(() => {
-                ipcRenderer.send('notification-confirmed');
+                ipcRenderer.send('notification-confirmed', firstNotification.id);
+                isProcessing = false;
+                btn.disabled = false;
             }, 300);
         }
         
-        // 键盘事件处理
+        // 新增：处理所有通知
+        function confirmAllNotifications() {
+            if (isProcessing || currentNotifications.length === 0) return;
+            
+            isProcessing = true;
+            
+            // 依次处理所有通知
+            currentNotifications.forEach((notification, index) => {
+                setTimeout(() => {
+                    ipcRenderer.send('notification-confirmed', notification.id);
+                    if (index === currentNotifications.length - 1) {
+                        isProcessing = false;
+                    }
+                }, index * 100);
+            });
+        }
+        
+        // 保持原来的键盘事件处理
         document.addEventListener('keydown', (e) => {
-            // 允许Enter键确认
             if (e.key === 'Enter' && !isProcessing) {
-                confirmNotification();
+                confirmFirstNotification();
                 return;
             }
             
-            // 阻止其他快捷键
             const blockedKeys = ['Escape', 'F4', 'F11', 'Tab'];
             if (blockedKeys.includes(e.key) || 
                 (e.altKey && e.key === 'F4') || 
@@ -176,23 +263,11 @@
             }
         });
         
-        // 阻止各种退出操作
+        // 保持原来的其他事件处理
         document.addEventListener('contextmenu', e => e.preventDefault());
         document.addEventListener('selectstart', e => e.preventDefault());
-        document.addEventListener('dragstart', e => e.preventDefault());
         
-        // 页面初始化
-        window.addEventListener('load', () => {
-            console.log('通知页面已加载完成');
-        });
-        
-        // 防止页面卸载
-        window.addEventListener('beforeunload', (e) => {
-            if (!isProcessing) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        });
+        console.log('多通知界面已加载完成');
     </script>
 </body>
 </html>
