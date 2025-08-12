@@ -1,0 +1,74 @@
+{
+  "notifications": [
+    {
+      "id": "morning_reminder2",
+      "title": "晨间提醒",
+      "message": "新的一天开始了！\n请检查今日工作计划",
+      "time": "15:42",
+      "enabled": true,
+      "repeat": "daily"
+    },
+    {
+      "id": "morning_reminder3",
+      "title": "晨间提醒",
+      "message": "新的一天开始了！\n请检查今日工作计划",
+      "time": "15:43",
+      "enabled": true,
+      "repeat": "daily"
+    },
+    {
+      "id": "morning_reminder4",
+      "title": "晨间提醒",
+      "message": "新的一天开始了！\n请检查今日工作计划",
+      "time": "15:44",
+      "enabled": true,
+      "repeat": "daily"
+    },
+    {
+      "id": "morning_reminder",
+      "title": "晨间提醒",
+      "message": "新的一天开始了！\n请检查今日工作计划",
+      "time": "09:00",
+      "enabled": true,
+      "repeat": "daily"
+    },
+    {
+      "id": "lunch_break",
+      "title": "午餐休息",
+      "message": "该休息一下了！\n记得按时吃午餐，保持健康",
+      "time": "12:00",
+      "enabled": true,
+      "repeat": "daily"
+    },
+    {
+      "id": "afternoon_reminder",
+      "title": "下午提醒",
+      "message": "下午时光，继续加油！\n记得多喝水，保护眼睛",
+      "time": "15:00",
+      "enabled": true,
+      "repeat": "daily"
+    },
+    {
+      "id": "end_of_day",
+      "title": "下班提醒",
+      "message": "今天辛苦了！\n记得总结今日工作，准备明天计划",
+      "time": "18:00",
+      "enabled": true,
+      "repeat": "daily"
+    },
+    {
+      "id": "system_backup",
+      "title": "系统备份",
+      "message": "系统自动备份时间到了\n请确保重要文件已保存",
+      "time": "20:00",
+      "enabled": false,
+      "repeat": "daily"
+    }
+  ],
+  "settings": {
+    "defaultInterval": 30,
+    "timezone": "Asia/Shanghai",
+    "enableSound": true,
+    "testMode": true
+  }
+}

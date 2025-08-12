@@ -196,8 +196,13 @@
             currentNotifications.forEach((notification, index) => {
                 const notificationDiv = document.createElement('div');
                 notificationDiv.className = 'notification-item';
+                // notificationDiv.innerHTML = `
+                //     <div class="time">#${index + 1} | ${notification.timestamp}</div>
+                //     <div class="message">${notification.message}</div>
+                // `;
                 notificationDiv.innerHTML = `
                     <div class="time">#${index + 1} | ${notification.timestamp}</div>
+                    <div style="font-weight: bold; margin-bottom: 5px; color: #ffeb3b;">${notification.title}</div>
                     <div class="message">${notification.message}</div>
                 `;
                 listElement.appendChild(notificationDiv);
