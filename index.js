@@ -93,8 +93,6 @@ function createMainWindow() {
             submenu: [
                 { role: 'about' },
                 { type: 'separator' },
-                { role: 'services' },
-                { type: 'separator' },
                 { role: 'hide' },
                 { role: 'hideothers' },
                 { role: 'unhide' },
@@ -103,14 +101,20 @@ function createMainWindow() {
             ]
         }] : []),
         {
-            label: '通知系统',
+            label: '功能',
             submenu: [
                 {
-                    label: '显示测试通知',
+                    label: '发送测试通知',
+                    accelerator: 'CmdOrCtrl+T',
                     click: () => {
                         addNotification('这是一个测试通知\n时间: ' + new Date().toLocaleString());
                     }
-                },
+                }
+            ]
+        },
+        {
+            label: '配置',
+            submenu: [
                 {
                     label: '重新加载配置',
                     accelerator: 'CmdOrCtrl+R',
@@ -119,30 +123,60 @@ function createMainWindow() {
                     }
                 },
                 {
-                    label: '打开配置文件夹',
+                    label: '打开配置目录',
                     click: () => {
-                        console.log('配置文件路径:', getConfigPath());
-                        require('electron').shell.showItemInFolder(getConfigPath());
+                        const configPath = getConfigPath();
+                        writeLog('INFO', '打开配置目录');
+                        require('electron').shell.showItemInFolder(configPath);
                     }
                 },
                 { type: 'separator' },
                 {
-                    label: '停止定时通知',
-                    click: () => stopTimer()
-                },
+                    label: '重置默认配置',
+                    click: () => {
+                        writeLog('INFO', '重置默认配置');
+                        createDefaultConfig();
+                    }
+                }
+            ]
+        },
+        {
+            label: '帮助',
+            submenu: [
                 {
-                    label: '启动定时通知',
-                    click: () => startTimer()
+                    label: '打开日志目录',
+                    click: () => {
+                        const logsDir = !app.isPackaged ? 
+                            path.join(__dirname, 'logs') : 
+                            path.join(app.getPath('userData'), 'logs');
+                        writeLog('INFO', '打开日志目录');
+                        require('electron').shell.openPath(logsDir);
+                    }
                 },
                 { type: 'separator' },
-                ...(!isMac ? [{
-                    label: '退出',
-                    accelerator: 'CmdOrCtrl+Q',
+                {
+                    label: '关于',
                     click: () => {
-                        cleanup();
-                        app.quit();
+                        writeLog('INFO', '显示关于信息');
+                        require('electron').dialog.showMessageBox(mainWindow, {
+                            type: 'info',
+                            title: '关于',
+                            message: 'ECC 桌面提醒系统',
+                            detail: `版本: ${app.getVersion()}\n作者: zhangzhenda\n\n一个简单而强大的桌面提醒工具。`
+                        });
                     }
-                }] : [])
+                },
+                ...(!isMac ? [
+                    { type: 'separator' },
+                    {
+                        label: '退出',
+                        accelerator: 'CmdOrCtrl+Q',
+                        click: () => {
+                            cleanup();
+                            app.quit();
+                        }
+                    }
+                ] : [])
             ]
         }
     ];
