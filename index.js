@@ -1,13 +1,13 @@
 const { app, BrowserWindow, ipcMain, Menu } = require('electron');
-const fs = require('fs'); // 新增
-const path = require('path'); // 新增
+const fs = require('fs');
+const path = require('path');
 
 let mainWindow;
 let notificationWindow = null;
 let timerInterval = null;
 let notificationQueue = [];
-let config = null; // 新增：配置对象
-let scheduledNotifications = []; // 新增：定时通知数组
+let config = null;
+let scheduledNotifications = [];
 
 function createMainWindow() {
     mainWindow = new BrowserWindow({
@@ -31,15 +31,17 @@ function createMainWindow() {
                     }
                 },
                 {
-                    label: '重新加载配置', // 新增
+                    label: '重新加载配置',
                     click: () => {
                         loadConfig();
                     }
                 },
                 {
-                    label: '显示配置文件路径', // 新增
+                    label: '显示配置文件路径',
                     click: () => {
                         console.log('配置文件路径:', getConfigPath());
+                        // 可选：打开配置文件所在文件夹
+                        require('electron').shell.showItemInFolder(getConfigPath());
                     }
                 },
                 { type: 'separator' },
@@ -67,12 +69,19 @@ function createMainWindow() {
     Menu.setApplicationMenu(menu);
 }
 
-// 新增：获取配置文件路径
+// 修复：获取配置文件路径 - 使用用户数据目录
 function getConfigPath() {
-    return path.join(__dirname, 'config.json');
+    // 开发环境直接使用项目目录
+    if (!app.isPackaged) {
+        return path.join(__dirname, 'config.json');
+    }
+    
+    // 生产环境使用用户数据目录
+    const userDataPath = app.getPath('userData');
+    return path.join(userDataPath, 'config.json');
 }
 
-// 新增：加载配置文件
+// 修复：加载配置文件
 function loadConfig() {
     const configPath = getConfigPath();
     
@@ -81,8 +90,6 @@ function loadConfig() {
             const configData = fs.readFileSync(configPath, 'utf8');
             config = JSON.parse(configData);
             console.log('配置文件加载成功:', config.notifications.length, '条通知配置');
-            
-            // 重新设置定时通知
             setupScheduledNotifications();
         } else {
             console.log('配置文件不存在，创建默认配置:', configPath);
@@ -90,44 +97,106 @@ function loadConfig() {
         }
     } catch (error) {
         console.error('加载配置文件失败:', error);
-        console.log('使用默认配置');
+        console.log('尝试从应用资源目录复制默认配置');
+        copyDefaultConfigFromResources();
+    }
+}
+
+// 新增：从应用资源目录复制默认配置
+function copyDefaultConfigFromResources() {
+    let defaultConfigPath;
+    
+    if (app.isPackaged) {
+        // 生产环境：从 resources 目录读取
+        defaultConfigPath = path.join(process.resourcesPath, 'config.json');
+    } else {
+        // 开发环境：从项目目录读取
+        defaultConfigPath = path.join(__dirname, 'config.json');
+    }
+    
+    const userConfigPath = getConfigPath();
+    
+    try {
+        if (fs.existsSync(defaultConfigPath)) {
+            // 确保用户数据目录存在
+            const userDataDir = path.dirname(userConfigPath);
+            if (!fs.existsSync(userDataDir)) {
+                fs.mkdirSync(userDataDir, { recursive: true });
+            }
+            
+            // 复制配置文件
+            fs.copyFileSync(defaultConfigPath, userConfigPath);
+            console.log('默认配置文件已复制到用户数据目录');
+            
+            // 重新加载
+            loadConfig();
+        } else {
+            console.log('未找到默认配置文件，创建内置默认配置');
+            createDefaultConfig();
+        }
+    } catch (error) {
+        console.error('复制默认配置失败:', error);
         createDefaultConfig();
     }
 }
 
-// 新增：创建默认配置文件
+// 修复：创建默认配置文件
 function createDefaultConfig() {
     const defaultConfig = {
-        notifications: [
+        "notifications": [
             {
-                id: "test_notification",
-                title: "测试通知",
-                message: "这是一个测试通知\n每30秒触发一次",
-                time: null, // null表示按间隔触发
-                interval: 30, // 30秒间隔
-                enabled: true,
-                repeat: "interval"
+                "id": "morning_reminder",
+                "title": "晨间提醒",
+                "message": "新的一天开始了！\n请检查今日工作计划",
+                "time": "09:00",
+                "enabled": true,
+                "repeat": "daily"
+            },
+            {
+                "id": "lunch_break",
+                "title": "午餐休息",
+                "message": "该休息一下了！\n记得按时吃午餐，保持健康",
+                "time": "12:00",
+                "enabled": true,
+                "repeat": "daily"
+            },
+            {
+                "id": "test_notification",
+                "title": "测试通知",
+                "message": "这是一个测试通知\n每30秒触发一次",
+                "interval": 30,
+                "enabled": false,
+                "repeat": "interval"
             }
         ],
-        settings: {
-            defaultInterval: 30,
-            timezone: "Asia/Shanghai",
-            enableSound: true,
-            testMode: true
+        "settings": {
+            "defaultInterval": 30,
+            "timezone": "Asia/Shanghai",
+            "enableSound": true,
+            "testMode": false
         }
     };
     
     try {
-        fs.writeFileSync(getConfigPath(), JSON.stringify(defaultConfig, null, 2), 'utf8');
+        const configPath = getConfigPath();
+        const configDir = path.dirname(configPath);
+        
+        // 确保目录存在
+        if (!fs.existsSync(configDir)) {
+            fs.mkdirSync(configDir, { recursive: true });
+        }
+        
+        fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2), 'utf8');
         config = defaultConfig;
-        console.log('默认配置文件已创建');
+        console.log('默认配置文件已创建:', configPath);
+        setupScheduledNotifications();
     } catch (error) {
         console.error('创建配置文件失败:', error);
         config = defaultConfig; // 至少在内存中使用默认配置
     }
 }
 
-// 新增：设置定时通知
+// 设置定时通知
 function setupScheduledNotifications() {
     // 清除现有的定时通知
     scheduledNotifications.forEach(scheduled => {
@@ -142,10 +211,8 @@ function setupScheduledNotifications() {
         if (!notificationConfig.enabled) return;
         
         if (notificationConfig.repeat === 'daily' && notificationConfig.time) {
-            // 按时间触发（每日）
             setupDailyNotification(notificationConfig);
         } else if (notificationConfig.repeat === 'interval' && notificationConfig.interval) {
-            // 按间隔触发
             setupIntervalNotification(notificationConfig);
         }
     });
@@ -153,7 +220,7 @@ function setupScheduledNotifications() {
     console.log(`已设置 ${scheduledNotifications.length} 个定时通知`);
 }
 
-// 新增：设置每日定时通知
+// 设置每日定时通知
 function setupDailyNotification(notificationConfig) {
     const [hour, minute] = notificationConfig.time.split(':').map(Number);
     
@@ -162,7 +229,6 @@ function setupDailyNotification(notificationConfig) {
         const scheduledTime = new Date();
         scheduledTime.setHours(hour, minute, 0, 0);
         
-        // 如果今天的时间已过，安排明天
         if (scheduledTime <= now) {
             scheduledTime.setDate(scheduledTime.getDate() + 1);
         }
@@ -171,7 +237,7 @@ function setupDailyNotification(notificationConfig) {
         
         const timeout = setTimeout(() => {
             addNotification(notificationConfig.message, notificationConfig.title);
-            scheduleNext(); // 安排下一次
+            scheduleNext();
         }, delay);
         
         scheduledNotifications.push({
@@ -186,7 +252,7 @@ function setupDailyNotification(notificationConfig) {
     scheduleNext();
 }
 
-// 新增：设置间隔通知
+// 设置间隔通知
 function setupIntervalNotification(notificationConfig) {
     const intervalMs = (notificationConfig.interval || config.settings.defaultInterval) * 1000;
     let count = 0;
@@ -206,11 +272,11 @@ function setupIntervalNotification(notificationConfig) {
     console.log(`${notificationConfig.title} 间隔通知已启动 (${notificationConfig.interval}秒)`);
 }
 
-// 修改：添加通知函数，支持标题
+// 其余函数保持不变...
 function addNotification(message, title = '系统通知') {
     const notification = {
         id: Date.now() + Math.random(),
-        title: title, // 新增标题支持
+        title: title,
         message: message,
         timestamp: new Date().toLocaleString()
     };
@@ -225,13 +291,11 @@ function addNotification(message, title = '系统通知') {
     }
 }
 
-// 修改：启动定时器（现在从配置文件读取）
 function startTimer() {
     stopTimer();
     
     if (!config) {
         console.log('配置未加载，使用默认定时器');
-        // 回退到原来的定时器
         let count = 0;
         timerInterval = setInterval(() => {
             count++;
@@ -245,13 +309,11 @@ function startTimer() {
 }
 
 function stopTimer() {
-    // 停止原有定时器
     if (timerInterval) {
         clearInterval(timerInterval);
         timerInterval = null;
     }
     
-    // 停止配置文件定时通知
     scheduledNotifications.forEach(scheduled => {
         if (scheduled.timeout) clearTimeout(scheduled.timeout);
         if (scheduled.interval) clearInterval(scheduled.interval);
@@ -261,7 +323,6 @@ function stopTimer() {
     console.log('所有定时通知已停止');
 }
 
-// 其他函数保持不变...
 function createNotificationWindow() {
     if (notificationWindow && !notificationWindow.isDestroyed()) {
         return notificationWindow;
@@ -332,8 +393,6 @@ ipcMain.on('notification-confirmed', (event, notificationId) => {
 
 app.whenReady().then(() => {
     createMainWindow();
-    
-    // 新增：启动时加载配置
     loadConfig();
     startTimer();
     

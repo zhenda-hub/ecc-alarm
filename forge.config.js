@@ -10,10 +10,7 @@ module.exports = {
     
     // 额外复制文件到应用目录
     extraResource: [
-      {
-        from: './config.json',
-        to: 'config.json'
-      }
+      './config.json',
     ]
   },
   rebuildConfig: {},
