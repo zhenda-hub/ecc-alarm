@@ -4,7 +4,7 @@
       "id": "morning_reminder2",
       "title": "晨间提醒",
       "message": "新的一天开始了！\n请检查今日工作计划",
-      "time": "15:42",
+      "time": "14:10",
       "enabled": true,
       "repeat": "daily"
     },
@@ -12,7 +12,7 @@
       "id": "morning_reminder3",
       "title": "晨间提醒",
       "message": "新的一天开始了！\n请检查今日工作计划",
-      "time": "15:43",
+      "time": "14:11",
       "enabled": true,
       "repeat": "daily"
     },
@@ -20,7 +20,7 @@
       "id": "morning_reminder4",
       "title": "晨间提醒",
       "message": "新的一天开始了！\n请检查今日工作计划",
-      "time": "15:44",
+      "time": "14:12",
       "enabled": true,
       "repeat": "daily"
     },

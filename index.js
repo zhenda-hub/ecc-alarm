@@ -69,7 +69,7 @@ function createMainWindow() {
 
 // 新增：获取配置文件路径
 function getConfigPath() {
-    return path.join(__dirname, 'notifications.json');
+    return path.join(__dirname, 'config.json');
 }
 
 // 新增：加载配置文件
