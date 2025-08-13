@@ -1,3 +1,15 @@
+// // 跨平台 Squirrel 启动处理 - 只在 Windows 上执行
+// if (process.platform === 'win32') {
+//     try {
+//         if (require('electron-squirrel-startup')) {
+//             require('electron').app.quit();
+//         }
+//     } catch (e) {
+//         // 如果 electron-squirrel-startup 不存在，忽略错误
+//         // 这样在开发环境或其他平台不会报错
+//     }
+// }
+
 const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -11,16 +23,36 @@ let scheduledNotifications = [];
 
 function createMainWindow() {
     mainWindow = new BrowserWindow({
-        width: 400,
-        height: 300,
-        show: false,
+        width: 350,
+        height: 550,
+        show: true, // 修改：立即显示窗口
+        resizable: false,
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false
         }
     });
     
-    const menu = Menu.buildFromTemplate([
+    // 加载首页
+    mainWindow.loadFile('index.html');
+    
+    // 跨平台菜单配置
+    const isMac = process.platform === 'darwin';
+    const menuTemplate = [
+        ...(isMac ? [{
+            label: app.getName(),
+            submenu: [
+                { role: 'about' },
+                { type: 'separator' },
+                { role: 'services' },
+                { type: 'separator' },
+                { role: 'hide' },
+                { role: 'hideothers' },
+                { role: 'unhide' },
+                { type: 'separator' },
+                { role: 'quit' }
+            ]
+        }] : []),
         {
             label: '通知系统',
             submenu: [
@@ -32,15 +64,15 @@ function createMainWindow() {
                 },
                 {
                     label: '重新加载配置',
+                    accelerator: 'CmdOrCtrl+R',
                     click: () => {
                         loadConfig();
                     }
                 },
                 {
-                    label: '显示配置文件路径',
+                    label: '打开配置文件夹',
                     click: () => {
                         console.log('配置文件路径:', getConfigPath());
-                        // 可选：打开配置文件所在文件夹
                         require('electron').shell.showItemInFolder(getConfigPath());
                     }
                 },
@@ -54,34 +86,35 @@ function createMainWindow() {
                     click: () => startTimer()
                 },
                 { type: 'separator' },
-                {
+                ...(!isMac ? [{
                     label: '退出',
                     accelerator: 'CmdOrCtrl+Q',
                     click: () => {
                         cleanup();
                         app.quit();
                     }
-                }
+                }] : [])
             ]
         }
-    ]);
+    ];
     
+    const menu = Menu.buildFromTemplate(menuTemplate);
     Menu.setApplicationMenu(menu);
 }
 
-// 修复：获取配置文件路径 - 使用用户数据目录
+// 跨平台配置文件路径
 function getConfigPath() {
-    // 开发环境直接使用项目目录
+    // 开发环境
     if (!app.isPackaged) {
         return path.join(__dirname, 'config.json');
     }
     
-    // 生产环境使用用户数据目录
+    // 生产环境 - 使用系统相应的用户数据目录
     const userDataPath = app.getPath('userData');
     return path.join(userDataPath, 'config.json');
 }
 
-// 修复：加载配置文件
+// 跨平台配置文件加载
 function loadConfig() {
     const configPath = getConfigPath();
     
@@ -92,22 +125,22 @@ function loadConfig() {
             console.log('配置文件加载成功:', config.notifications.length, '条通知配置');
             setupScheduledNotifications();
         } else {
-            console.log('配置文件不存在，创建默认配置:', configPath);
-            createDefaultConfig();
+            console.log('配置文件不存在，尝试复制默认配置:', configPath);
+            copyDefaultConfigFromResources();
         }
     } catch (error) {
         console.error('加载配置文件失败:', error);
-        console.log('尝试从应用资源目录复制默认配置');
-        copyDefaultConfigFromResources();
+        console.log('创建默认配置');
+        createDefaultConfig();
     }
 }
 
-// 新增：从应用资源目录复制默认配置
+// 跨平台默认配置复制
 function copyDefaultConfigFromResources() {
     let defaultConfigPath;
     
     if (app.isPackaged) {
-        // 生产环境：从 resources 目录读取
+        // 生产环境：从资源目录读取
         defaultConfigPath = path.join(process.resourcesPath, 'config.json');
     } else {
         // 开发环境：从项目目录读取
@@ -126,12 +159,12 @@ function copyDefaultConfigFromResources() {
             
             // 复制配置文件
             fs.copyFileSync(defaultConfigPath, userConfigPath);
-            console.log('默认配置文件已复制到用户数据目录');
+            console.log('默认配置文件已复制到:', userConfigPath);
             
             // 重新加载
             loadConfig();
         } else {
-            console.log('未找到默认配置文件，创建内置默认配置');
+            console.log('未找到默认配置文件，创建内置配置');
             createDefaultConfig();
         }
     } catch (error) {
@@ -140,7 +173,6 @@ function copyDefaultConfigFromResources() {
     }
 }
 
-// 修复：创建默认配置文件
 function createDefaultConfig() {
     const defaultConfig = {
         "notifications": [
@@ -161,12 +193,12 @@ function createDefaultConfig() {
                 "repeat": "daily"
             },
             {
-                "id": "test_notification",
-                "title": "测试通知",
-                "message": "这是一个测试通知\n每30秒触发一次",
-                "interval": 30,
-                "enabled": false,
-                "repeat": "interval"
+                "id": "afternoon_reminder",
+                "title": "下午提醒",
+                "message": "下午时光，继续加油！\n记得多喝水，保护眼睛",
+                "time": "15:00",
+                "enabled": true,
+                "repeat": "daily"
             }
         ],
         "settings": {
@@ -181,7 +213,6 @@ function createDefaultConfig() {
         const configPath = getConfigPath();
         const configDir = path.dirname(configPath);
         
-        // 确保目录存在
         if (!fs.existsSync(configDir)) {
             fs.mkdirSync(configDir, { recursive: true });
         }
@@ -192,13 +223,11 @@ function createDefaultConfig() {
         setupScheduledNotifications();
     } catch (error) {
         console.error('创建配置文件失败:', error);
-        config = defaultConfig; // 至少在内存中使用默认配置
+        config = defaultConfig;
     }
 }
 
-// 设置定时通知
 function setupScheduledNotifications() {
-    // 清除现有的定时通知
     scheduledNotifications.forEach(scheduled => {
         if (scheduled.timeout) clearTimeout(scheduled.timeout);
         if (scheduled.interval) clearInterval(scheduled.interval);
@@ -220,7 +249,6 @@ function setupScheduledNotifications() {
     console.log(`已设置 ${scheduledNotifications.length} 个定时通知`);
 }
 
-// 设置每日定时通知
 function setupDailyNotification(notificationConfig) {
     const [hour, minute] = notificationConfig.time.split(':').map(Number);
     
@@ -252,7 +280,6 @@ function setupDailyNotification(notificationConfig) {
     scheduleNext();
 }
 
-// 设置间隔通知
 function setupIntervalNotification(notificationConfig) {
     const intervalMs = (notificationConfig.interval || config.settings.defaultInterval) * 1000;
     let count = 0;
@@ -272,7 +299,6 @@ function setupIntervalNotification(notificationConfig) {
     console.log(`${notificationConfig.title} 间隔通知已启动 (${notificationConfig.interval}秒)`);
 }
 
-// 其余函数保持不变...
 function addNotification(message, title = '系统通知') {
     const notification = {
         id: Date.now() + Math.random(),
@@ -391,24 +417,39 @@ ipcMain.on('notification-confirmed', (event, notificationId) => {
     }
 });
 
+// 跨平台应用生命周期处理
 app.whenReady().then(() => {
     createMainWindow();
     loadConfig();
     startTimer();
     
     console.log('========================================');
-    console.log('配置化通知系统已启动！');
-    console.log('- 配置文件:', getConfigPath());
+    console.log('ECC桌面提醒系统已启动！');
+    console.log(`- 平台: ${process.platform}`);
+    console.log(`- 配置文件: ${getConfigPath()}`);
     console.log('- 支持JSON配置定时通知');
-    console.log('- 菜单可重新加载配置');
     console.log('========================================');
 });
 
+
 app.on('window-all-closed', (event) => {
-    event.preventDefault();
+    // 在 macOS 上，除非用户明确退出，否则保持应用运行
+    if (process.platform !== 'darwin') {
+        cleanup();
+        app.quit();
+    } else {
+        event.preventDefault();
+    }
+});
+
+app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+        createMainWindow();
+    }
 });
 
 app.on('before-quit', cleanup);
+
 process.on('uncaughtException', (error) => {
     console.error('未捕获异常:', error);
     cleanup();
