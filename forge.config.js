@@ -21,7 +21,7 @@ module.exports = {
     },
     {
       name: '@electron-forge/maker-zip',
-      platforms: ['darwin'],
+      platforms: ['win32', 'darwin'],
     },
     {
       name: '@electron-forge/maker-deb',
