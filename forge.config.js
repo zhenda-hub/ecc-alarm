@@ -21,7 +21,9 @@ module.exports = {
     },
     {
       name: '@electron-forge/maker-zip',
-      platforms: ['win32', 'darwin'],
+      // 不指定 platforms，会为所有平台生成
+      // platforms: ['win32', 'darwin'],
+
     },
     {
       name: '@electron-forge/maker-deb',
