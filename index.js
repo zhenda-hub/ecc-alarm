@@ -14,6 +14,55 @@ const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
+// 日志功能相关变量
+let currentLogFile = '';
+let logStream = null;
+
+// 获取日志文件路径
+function getLogFilePath() {
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay() + 1); // 设置为本周一
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+    
+    // 在开发环境使用项目目录，在生产环境使用用户数据目录
+    const baseDir = !app.isPackaged ? 
+        path.join(__dirname, 'logs') : 
+        path.join(app.getPath('userData'), 'logs');
+    
+    // 确保日志目录存在
+    if (!fs.existsSync(baseDir)) {
+        fs.mkdirSync(baseDir, { recursive: true });
+    }
+    
+    const logPath = path.join(baseDir, `${weekStartStr}.log`);
+    console.log('日志文件路径:', logPath); // 添加调试输出
+    return logPath;
+}
+
+// 写入日志
+function writeLog(type, message) {
+    console.log(`准备写入日志: [${type}] ${message}`); // 调试输出
+    
+    try {
+        const logPath = getLogFilePath();
+        const now = new Date().toISOString();
+        const logMessage = `[${now}] [${type}] ${message}\n`;
+        
+        // 直接使用同步写入方式
+        fs.appendFileSync(logPath, logMessage, 'utf8');
+        console.log('日志写入成功'); // 调试输出
+        
+    } catch (error) {
+        console.error('写入日志失败:', error);
+        console.error('错误详情:', {
+            error: error.message,
+            stack: error.stack,
+            path: getLogFilePath()
+        });
+    }
+}
+
 let mainWindow;
 let notificationWindow = null;
 let timerInterval = null;
@@ -122,15 +171,15 @@ function loadConfig() {
         if (fs.existsSync(configPath)) {
             const configData = fs.readFileSync(configPath, 'utf8');
             config = JSON.parse(configData);
-            console.log('配置文件加载成功:', config.notifications.length, '条通知配置');
+            writeLog('INFO', `配置文件加载成功: ${config.notifications.length} 条通知配置`);
             setupScheduledNotifications();
         } else {
-            console.log('配置文件不存在，尝试复制默认配置:', configPath);
+            writeLog('WARN', `配置文件不存在，尝试复制默认配置: ${configPath}`);
             copyDefaultConfigFromResources();
         }
     } catch (error) {
-        console.error('加载配置文件失败:', error);
-        console.log('创建默认配置');
+        writeLog('ERROR', `加载配置文件失败: ${error.message}`);
+        writeLog('INFO', '创建默认配置');
         createDefaultConfig();
     }
 }
@@ -215,14 +264,22 @@ function createDefaultConfig() {
         
         if (!fs.existsSync(configDir)) {
             fs.mkdirSync(configDir, { recursive: true });
+            writeLog('INFO', '创建配置目录', { path: configDir });
         }
         
         fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2), 'utf8');
         config = defaultConfig;
-        console.log('默认配置文件已创建:', configPath);
+        writeLog('INFO', '创建默认配置', {
+            path: configPath,
+            notificationCount: defaultConfig.notifications.length,
+            settings: defaultConfig.settings
+        });
         setupScheduledNotifications();
     } catch (error) {
-        console.error('创建配置文件失败:', error);
+        writeLog('ERROR', '创建配置文件失败', {
+            path: getConfigPath(),
+            error: error.message
+        });
         config = defaultConfig;
     }
 }
@@ -308,7 +365,7 @@ function addNotification(message, title = '系统通知') {
     };
     
     notificationQueue.push(notification);
-    console.log(`[${notification.timestamp}] 新增通知: ${title}`);
+    writeLog('INFO', `新增通知: ${title} (ID: ${notification.id})`);
     
     if (notificationWindow && !notificationWindow.isDestroyed()) {
         updateNotificationWindow();
@@ -321,7 +378,10 @@ function startTimer() {
     stopTimer();
     
     if (!config) {
-        console.log('配置未加载，使用默认定时器');
+        writeLog('WARN', '配置未加载，启动默认定时器', {
+            interval: '30秒',
+            type: 'default'
+        });
         let count = 0;
         timerInterval = setInterval(() => {
             count++;
@@ -331,7 +391,11 @@ function startTimer() {
     }
     
     setupScheduledNotifications();
-    console.log('基于配置文件的定时通知已启动');
+    writeLog('INFO', '定时通知系统启动', {
+        notificationCount: config.notifications.length,
+        enabledCount: config.notifications.filter(n => n.enabled).length,
+        settings: config.settings
+    });
 }
 
 function stopTimer() {
@@ -351,6 +415,7 @@ function stopTimer() {
 
 function createNotificationWindow() {
     if (notificationWindow && !notificationWindow.isDestroyed()) {
+        writeLog('DEBUG', '复用现有通知窗口');
         return notificationWindow;
     }
     
@@ -365,13 +430,20 @@ function createNotificationWindow() {
         }
     });
     
+    writeLog('INFO', '创建通知窗口', {
+        fullscreen: true,
+        alwaysOnTop: true
+    });
+    
     notificationWindow.loadFile('notification.html');
     
     notificationWindow.on('close', (event) => {
+        writeLog('DEBUG', '拦截通知窗口关闭事件');
         event.preventDefault();
     });
     
     notificationWindow.on('closed', () => {
+        writeLog('INFO', '通知窗口已关闭');
         notificationWindow = null;
     });
     
@@ -400,16 +472,39 @@ function cleanup() {
     if (notificationWindow && !notificationWindow.isDestroyed()) {
         notificationWindow.destroy();
     }
+    
+    // 关闭日志流
+    if (logStream) {
+        logStream.end();
+        logStream = null;
+    }
+    writeLog('INFO', '应用关闭，清理资源完成');
 }
 
 ipcMain.on('notification-confirmed', (event, notificationId) => {
-    console.log(`[${new Date().toLocaleString()}] 通知已确认: ${notificationId}`);
+    const notification = notificationQueue.find(n => n.id === notificationId);
+    
+    if (notification) {
+        writeLog('INFO', '通知已确认', {
+            id: notificationId,
+            title: notification.title,
+            createTime: notification.timestamp,
+            confirmTime: new Date().toLocaleString()
+        });
+    } else {
+        writeLog('WARN', '确认未知通知', { id: notificationId });
+    }
     
     notificationQueue = notificationQueue.filter(n => n.id !== notificationId);
     
     if (notificationQueue.length > 0) {
+        writeLog('INFO', '更新通知队列', {
+            remaining: notificationQueue.length,
+            nextTitle: notificationQueue[0].title
+        });
         updateNotificationWindow();
     } else {
+        writeLog('INFO', '通知队列清空，关闭窗口');
         if (notificationWindow && !notificationWindow.isDestroyed()) {
             notificationWindow.removeAllListeners('close');
             notificationWindow.close();
@@ -419,16 +514,31 @@ ipcMain.on('notification-confirmed', (event, notificationId) => {
 
 // 跨平台应用生命周期处理
 app.whenReady().then(() => {
+    console.log('应用启动');
+    console.log('应用目录:', __dirname);
+    console.log('用户数据目录:', app.getPath('userData'));
+    
+    // 确保基本目录结构存在
+    const logsDir = !app.isPackaged ? 
+        path.join(__dirname, 'logs') : 
+        path.join(app.getPath('userData'), 'logs');
+    
+    if (!fs.existsSync(logsDir)) {
+        console.log('创建日志目录:', logsDir);
+        fs.mkdirSync(logsDir, { recursive: true });
+    }
+    
+    writeLog('INFO', '========================================');
+    writeLog('INFO', 'ECC桌面提醒系统启动');
+    writeLog('INFO', `运行平台: ${process.platform}`);
+    writeLog('INFO', `配置文件: ${getConfigPath()}`);
+    writeLog('INFO', `日志目录: ${logsDir}`);
+    writeLog('INFO', '支持JSON配置定时通知');
+    writeLog('INFO', '========================================');
+    
     createMainWindow();
     loadConfig();
     startTimer();
-    
-    console.log('========================================');
-    console.log('ECC桌面提醒系统已启动！');
-    console.log(`- 平台: ${process.platform}`);
-    console.log(`- 配置文件: ${getConfigPath()}`);
-    console.log('- 支持JSON配置定时通知');
-    console.log('========================================');
 });
 
 
@@ -448,9 +558,13 @@ app.on('activate', () => {
     }
 });
 
-app.on('before-quit', cleanup);
+app.on('before-quit', () => {
+    writeLog('INFO', '应用准备退出');
+    cleanup();
+});
 
 process.on('uncaughtException', (error) => {
-    console.error('未捕获异常:', error);
+    writeLog('ERROR', `未捕获异常: ${error.message}`);
+    writeLog('ERROR', error.stack || '无堆栈信息');
     cleanup();
 });
