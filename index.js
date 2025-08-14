@@ -153,10 +153,10 @@ function writeLog(type, message) {
 
 let mainWindow;
 let notificationWindow = null;
-let timerInterval = null;
+let hiddenNotificationWindow = null;  // 预加载的通知窗口
 let notificationQueue = [];
 let config = null;
-let scheduledNotifications = [];
+let dailyFetchTimeout = null; // 每日任务获取定时器
 
 function createMainWindow() {
     mainWindow = new BrowserWindow({
@@ -656,8 +656,79 @@ function updateNotificationWindow() {
     }
 }
 
+// 设置每日任务获取定时器
+function setupDailyFetch() {
+    // 定义获取时间点
+    const FETCH_TIMES = [
+        { hour: 8, minute: 5 },
+        { hour: 8, minute: 10 },
+        { hour: 8, minute: 15 }
+    ];
+
+    // 清除现有定时器
+    if (dailyFetchTimeout) {
+        clearTimeout(dailyFetchTimeout);
+        dailyFetchTimeout = null;
+    }
+
+    function getNextFetchTime() {
+        const now = new Date();
+        const today = new Date(now);
+        let nextFetch = null;
+        let minDelay = Infinity;
+
+        // 检查今天的所有时间点
+        for (const time of FETCH_TIMES) {
+            const fetchTime = new Date(today);
+            fetchTime.setHours(time.hour, time.minute, 0, 0);
+
+            if (fetchTime <= now) {
+                // 如果时间已过，设置为明天
+                fetchTime.setDate(fetchTime.getDate() + 1);
+            }
+
+            const delay = fetchTime.getTime() - now.getTime();
+            if (delay < minDelay) {
+                minDelay = delay;
+                nextFetch = fetchTime;
+            }
+        }
+
+        return nextFetch;
+    }
+
+    function scheduleNextFetch() {
+        const nextFetch = getNextFetchTime();
+        const delay = nextFetch.getTime() - Date.now();
+        
+        writeLog('INFO', `下次任务获取定时: ${nextFetch.toLocaleString()}, ${Math.floor(delay/1000/60)}分钟后`);
+
+        dailyFetchTimeout = setTimeout(async () => {
+            try {
+                await loadConfig();
+                writeLog('INFO', `每日任务获取成功 (${nextFetch.getHours()}:${String(nextFetch.getMinutes()).padStart(2, '0')})`);
+            } catch (error) {
+                writeLog('ERROR', `每日任务获取失败: ${error.message}`);
+            }
+            // 设置下一次获取
+            scheduleNextFetch();
+        }, delay);
+    }
+
+    // 输出所有定时点的信息
+    writeLog('INFO', '设置每日任务获取时间:\n' + 
+        FETCH_TIMES.map(t => `- ${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')}`).join('\n')
+    );
+
+    // 立即开始调度
+    scheduleNextFetch();
+}
+
 function cleanup() {
-    stopTimer();
+    if (dailyFetchTimeout) {
+        clearTimeout(dailyFetchTimeout);
+        dailyFetchTimeout = null;
+    }
     notificationQueue = [];
     if (notificationWindow && !notificationWindow.isDestroyed()) {
         notificationWindow.destroy();
@@ -727,8 +798,15 @@ app.whenReady().then(() => {
     writeLog('INFO', '========================================');
     
     createMainWindow();
-    loadConfig();
-    // startTimer();
+    
+    // 初始加载配置并设置定时获取
+    loadConfig().then(() => {
+        setupDailyFetch();
+    }).catch(error => {
+        writeLog('ERROR', `初始配置加载失败: ${error.message}`);
+        // 即使初始加载失败，仍然设置定时获取
+        setupDailyFetch();
+    });
 });
 
 
