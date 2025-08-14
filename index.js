@@ -344,15 +344,19 @@ function getConfigPath() {
 // 加载配置
 async function loadConfig() {
     writeLog('INFO', '开始加载配置');
+    const configPath = getConfigPath();
+
     try {
+        // 尝试从API获取数据
         const taskData = await fetchAllTasks();
         
-        // 确保 taskData 中包含必要的字段
+        // 如果获取成功，检查数据格式
         if (!taskData || !taskData.tasks) {
             throw new Error('获取到的任务数据格式不正确');
         }
-        
-        config = {
+
+        // 准备新的配置
+        const newConfig = {
             lastUpdate: new Date().toISOString(),
             tasks: taskData.tasks || [],
             settings: {
@@ -360,28 +364,33 @@ async function loadConfig() {
                 windowScale: 'fullscreen'
             }
         };
+
+        // 写入新配置到文件
+        fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), 'utf8');
+        writeLog('INFO', `配置更新成功，共 ${newConfig.tasks.length} 条任务`);
         
-        // 保存最新配置到缓存
-        const configPath = getConfigPath();
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
-        
-        writeLog('INFO', `配置更新成功，共 ${config.tasks.length} 条任务`);
-        return config;
+        // 更新内存中的配置
+        config = newConfig;
     } catch (error) {
-        writeLog('ERROR', `更新配置失败: ${error.message}`);
-        // 如果更新失败，尝试加载缓存的配置
-        try {
-            const configPath = getConfigPath();
-            if (fs.existsSync(configPath)) {
-                const cachedConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-                writeLog('WARN', '使用缓存配置');
-                config = cachedConfig;
-                return config;
-            }
-        } catch (cacheError) {
-            writeLog('ERROR', `加载缓存配置失败: ${cacheError.message}`);
+        // 记录错误
+        writeLog('ERROR', `API数据获取失败: ${error.message}`);
+        writeLog('WARN', '尝试使用本地配置文件');
+    }
+    
+    // 无论上面是否成功，都尝试使用配置文件
+    try {
+        if (fs.existsSync(configPath)) {
+            const fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            writeLog('INFO', `从配置文件加载了 ${fileConfig.tasks?.length || 0} 条任务`);
+            config = fileConfig;
+            return config;
+        } else {
+            writeLog('ERROR', '配置文件不存在');
+            throw new Error('配置文件不存在');
         }
-        throw error;
+    } catch (readError) {
+        writeLog('ERROR', `读取配置文件失败: ${readError.message}`);
+        throw readError;
     }
 }
 
