@@ -83,38 +83,26 @@ async function fetchAllTasks() {
             fetchTasksFromUrl(TASK_URLS.night)
         ]);
         
-        const allTasks = [...dayTasks, ...nightTasks];
+        // 确保返回的是数组
+        const dayTasksArray = Array.isArray(dayTasks) ? dayTasks : [];
+        const nightTasksArray = Array.isArray(nightTasks) ? nightTasks : [];
+        
+        const allTasks = [...dayTasksArray, ...nightTasksArray];
         const endTime = Date.now();
         
         writeLog('INFO', `任务获取完成 - 总耗时: ${endTime - startTime}ms`);
         writeLog('INFO', `任务统计:\n` + 
-            `- 白班任务: ${dayTasks.length} 条\n` +
-            `- 夜班任务: ${nightTasks.length} 条\n` +
+            `- 白班任务: ${dayTasksArray.length} 条\n` +
+            `- 夜班任务: ${nightTasksArray.length} 条\n` +
             `- 总任务数: ${allTasks.length} 条`);
         
         // 记录详细的任务信息
         writeLog('DEBUG', '完整任务列表: ' + JSON.stringify(allTasks, null, 2));
         
-        // 创建新的配置对象
-        const newConfig = {
-            lastUpdate: new Date().toISOString(),
+        return {
             tasks: allTasks,
-            settings: {
-                backgroundColor: '#c62828',
-                windowScale: 'fullscreen'
-            }
+            lastUpdate: new Date().toISOString()
         };
-        
-        // 保存到配置文件
-        const configPath = getConfigPath();
-        try {
-            fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), 'utf8');
-            writeLog('INFO', `配置文件已更新: ${configPath}`);
-        } catch (saveError) {
-            writeLog('ERROR', `保存配置文件失败: ${saveError.message}`);
-        }
-        
-        return newConfig;
     } catch (error) {
         writeLog('ERROR', `获取任务失败: ${error.message}`);
         writeLog('ERROR', `错误详情: ${error.stack || '无堆栈信息'}`);
@@ -370,9 +358,14 @@ async function loadConfig() {
     try {
         const taskData = await fetchAllTasks();
         
+        // 确保 taskData 中包含必要的字段
+        if (!taskData || !taskData.tasks) {
+            throw new Error('获取到的任务数据格式不正确');
+        }
+        
         config = {
-            lastUpdate: taskData.timestamp,
-            tasks: taskData.tasks,
+            lastUpdate: new Date().toISOString(),
+            tasks: taskData.tasks || [],
             settings: {
                 backgroundColor: '#c62828',
                 windowScale: 'fullscreen'
