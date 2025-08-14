@@ -1,15 +1,3 @@
-// // 跨平台 Squirrel 启动处理 - 只在 Windows 上执行
-// if (process.platform === 'win32') {
-//     try {
-//         if (require('electron-squirrel-startup')) {
-//             require('electron').app.quit();
-//         }
-//     } catch (e) {
-//         // 如果 electron-squirrel-startup 不存在，忽略错误
-//         // 这样在开发环境或其他平台不会报错
-//     }
-// }
-
 const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -27,7 +15,7 @@ const TASK_URLS = {
 let currentLogFile = '';
 let logStream = null;
 
-// 从URL获取数据
+// 从远程API获取任务数据
 function fetchTasksFromUrl(url) {
     return new Promise((resolve, reject) => {
         writeLog('INFO', `开始请求 API: ${url}`);
@@ -72,7 +60,7 @@ function fetchTasksFromUrl(url) {
     });
 }
 
-// 获取并合并所有任务
+// 同时获取白班和夜班任务并合并
 async function fetchAllTasks() {
     try {
         writeLog('INFO', '开始获取任务数据');
@@ -175,6 +163,7 @@ let notificationQueue = [];
 let config = null;
 let dailyFetchTimeout = null; // 每日任务获取定时器
 
+// 创建并配置主应用窗口
 function createMainWindow() {
     mainWindow = new BrowserWindow({
         width: 350,
@@ -518,6 +507,7 @@ function setupScheduledNotifications() {
     console.log(`已设置 ${scheduledNotifications.length} 个定时通知`);
 }
 
+// 设置每日定时通知
 function setupDailyNotification(notificationConfig) {
     const [hour, minute] = notificationConfig.time.split(':').map(Number);
     
@@ -549,6 +539,7 @@ function setupDailyNotification(notificationConfig) {
     scheduleNext();
 }
 
+// 设置间隔重复通知
 function setupIntervalNotification(notificationConfig) {
     const intervalMs = (notificationConfig.interval || config.settings.defaultInterval) * 1000;
     let count = 0;
@@ -586,6 +577,7 @@ function addNotification(message, title = '系统通知') {
     }
 }
 
+// 启动定时通知系统
 function startTimer() {
     stopTimer();
     
@@ -610,6 +602,7 @@ function startTimer() {
     });
 }
 
+// 停止所有定时通知任务
 function stopTimer() {
     if (timerInterval) {
         clearInterval(timerInterval);
@@ -625,6 +618,7 @@ function stopTimer() {
     console.log('所有定时通知已停止');
 }
 
+// 创建全屏通知窗口
 function createNotificationWindow() {
     if (notificationWindow && !notificationWindow.isDestroyed()) {
         writeLog('DEBUG', '复用现有通知窗口');
@@ -662,6 +656,7 @@ function createNotificationWindow() {
     return notificationWindow;
 }
 
+// 显示通知窗口并准备显示通知
 function showNotificationWindow() {
     if (notificationQueue.length === 0) return;
     
@@ -672,6 +667,7 @@ function showNotificationWindow() {
     });
 }
 
+// 更新通知窗口的通知内容
 function updateNotificationWindow() {
     if (notificationWindow && !notificationWindow.isDestroyed()) {
         notificationWindow.webContents.send('show-notifications', notificationQueue);
@@ -747,6 +743,7 @@ function setupDailyFetch() {
     scheduleNextFetch();
 }
 
+// 清理应用资源并关闭相关进程
 function cleanup() {
     if (dailyFetchTimeout) {
         clearTimeout(dailyFetchTimeout);
