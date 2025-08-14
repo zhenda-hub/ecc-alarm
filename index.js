@@ -13,10 +13,98 @@
 const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
+
+// 任务URL配置
+const TASK_URLS = {
+    day: 'https://paas.hxmis.com/o/eccdigital/onduty/onduty_task/?role_type=服务台&duty_type=白班',
+    night: 'https://paas.hxmis.com/o/eccdigital/onduty/onduty_task/?role_type=服务台&duty_type=夜班'
+    // day: 'https://baidu.com',
+    // night: 'https://google.com'
+};
 
 // 日志功能相关变量
 let currentLogFile = '';
 let logStream = null;
+
+// 从URL获取数据
+function fetchTasksFromUrl(url) {
+    return new Promise((resolve, reject) => {
+        writeLog('INFO', `开始请求 API: ${url}`);
+        const startTime = Date.now();
+
+        https.get(url, {
+            rejectUnauthorized: false  // 如果需要忽略SSL证书验证
+        }, (res) => {
+            let data = '';
+            
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+            
+            res.on('end', () => {
+                try {
+                    const endTime = Date.now();
+                    const elapsed = endTime - startTime;
+                    writeLog('INFO', `API响应完成，耗时: ${elapsed}ms`);
+
+                    const result = JSON.parse(data);
+                    writeLog('DEBUG', `API响应内容: ${JSON.stringify(result)}`);
+
+                    if (result.code === 200) {
+                        const tasks = result.task || [];
+                        writeLog('INFO', `成功获取 ${tasks.length} 条任务`);
+                        resolve(tasks);
+                    } else {
+                        const error = new Error(`API返回错误: ${result.code}`);
+                        writeLog('ERROR', `API请求失败: ${error.message}`);
+                        reject(error);
+                    }
+                } catch (err) {
+                    writeLog('ERROR', `解析API响应失败: ${err.message}`);
+                    reject(err);
+                }
+            });
+        }).on('error', (err) => {
+            writeLog('ERROR', `API请求错误: ${err.message}`);
+            reject(err);
+        });
+    });
+}
+
+// 获取并合并所有任务
+async function fetchAllTasks() {
+    try {
+        writeLog('INFO', '开始获取任务数据');
+        const startTime = Date.now();
+        
+        const [dayTasks, nightTasks] = await Promise.all([
+            fetchTasksFromUrl(TASK_URLS.day),
+            fetchTasksFromUrl(TASK_URLS.night)
+        ]);
+        
+        const allTasks = [...dayTasks, ...nightTasks];
+        const endTime = Date.now();
+        
+        writeLog('INFO', `任务获取完成 - 总耗时: ${endTime - startTime}ms`);
+        writeLog('INFO', `任务统计:\n` + 
+            `- 白班任务: ${dayTasks.length} 条\n` +
+            `- 夜班任务: ${nightTasks.length} 条\n` +
+            `- 总任务数: ${allTasks.length} 条`);
+        
+        // 记录详细的任务信息
+        writeLog('DEBUG', '完整任务列表: ' + JSON.stringify(allTasks, null, 2));
+        
+        return {
+            tasks: allTasks,
+            timestamp: new Date().toISOString()
+        };
+    } catch (error) {
+        writeLog('ERROR', `获取任务失败: ${error.message}`);
+        writeLog('ERROR', `错误详情: ${error.stack || '无堆栈信息'}`);
+        throw error;
+    }
+}
 
 // 获取日志文件路径
 function getLogFilePath() {
@@ -36,7 +124,7 @@ function getLogFilePath() {
     }
     
     const logPath = path.join(baseDir, `${weekStartStr}.log`);
-    console.log('日志文件路径:', logPath); // 添加调试输出
+    // console.log('日志文件路径:', logPath); // 添加调试输出
     return logPath;
 }
 
@@ -116,27 +204,38 @@ function createMainWindow() {
             label: '配置',
             submenu: [
                 {
-                    label: '重新加载配置',
+                    label: '刷新任务配置',
                     accelerator: 'CmdOrCtrl+R',
-                    click: () => {
-                        loadConfig();
+                    click: async () => {
+                        try {
+                            await loadConfig();
+                            require('electron').dialog.showMessageBox(mainWindow, {
+                                type: 'info',
+                                title: '配置更新成功',
+                                message: `已成功获取 ${config.tasks.length} 条任务`,
+                                detail: `更新时间: ${new Date().toLocaleString()}`
+                            });
+                        } catch (error) {
+                            require('electron').dialog.showErrorBox(
+                                '配置更新失败',
+                                `无法获取最新任务: ${error.message}`
+                            );
+                        }
                     }
                 },
                 {
-                    label: '打开配置目录',
+                    label: '查看当前配置',
                     click: () => {
                         const configPath = getConfigPath();
-                        writeLog('INFO', '打开配置目录');
+                        writeLog('INFO', '打开配置缓存');
                         require('electron').shell.showItemInFolder(configPath);
                     }
                 },
                 { type: 'separator' },
                 {
-                    label: '重置默认配置',
-                    click: () => {
-                        writeLog('INFO', '重置默认配置');
-                        createDefaultConfig();
-                    }
+                    label: '上次更新时间',
+                    enabled: false,
+                    click: () => {}
                 }
             ]
         },
@@ -236,24 +335,42 @@ function getConfigPath() {
     return path.join(userDataPath, 'config.json');
 }
 
-// 跨平台配置文件加载
-function loadConfig() {
-    const configPath = getConfigPath();
-    
+// 重新加载配置
+async function loadConfig() {
+    writeLog('INFO', '开始重新加载配置');
     try {
-        if (fs.existsSync(configPath)) {
-            const configData = fs.readFileSync(configPath, 'utf8');
-            config = JSON.parse(configData);
-            writeLog('INFO', `配置文件加载成功: ${config.notifications.length} 条通知配置`);
-            setupScheduledNotifications();
-        } else {
-            writeLog('WARN', `配置文件不存在，尝试复制默认配置: ${configPath}`);
-            copyDefaultConfigFromResources();
-        }
+        const taskData = await fetchAllTasks();
+        
+        config = {
+            lastUpdate: taskData.timestamp,
+            tasks: taskData.tasks,
+            settings: {
+                backgroundColor: '#c62828',
+                windowScale: 'fullscreen'
+            }
+        };
+        
+        // 保存最新配置到缓存
+        const configPath = getConfigPath();
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+        
+        writeLog('INFO', `配置更新成功，共 ${config.tasks.length} 条任务`);
+        return config;
     } catch (error) {
-        writeLog('ERROR', `加载配置文件失败: ${error.message}`);
-        writeLog('INFO', '创建默认配置');
-        createDefaultConfig();
+        writeLog('ERROR', `更新配置失败: ${error.message}`);
+        // 如果更新失败，尝试加载缓存的配置
+        try {
+            const configPath = getConfigPath();
+            if (fs.existsSync(configPath)) {
+                const cachedConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                writeLog('WARN', '使用缓存配置');
+                config = cachedConfig;
+                return config;
+            }
+        } catch (cacheError) {
+            writeLog('ERROR', `加载缓存配置失败: ${cacheError.message}`);
+        }
+        throw error;
     }
 }
 
@@ -611,7 +728,7 @@ app.whenReady().then(() => {
     
     createMainWindow();
     loadConfig();
-    startTimer();
+    // startTimer();
 });
 
 
