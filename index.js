@@ -689,9 +689,10 @@ function updateNotificationWindow() {
 function setupDailyFetch() {
     // 定义获取时间点
     const FETCH_TIMES = [
-        { hour: 8, minute: 5 },
-        { hour: 8, minute: 10 },
-        { hour: 8, minute: 15 }
+        { hour: 8, minute: 2 },
+        { hour: 8, minute: 4 },
+        { hour: 20, minute: 2 },
+        { hour: 20, minute: 4 }
     ];
 
     // 清除现有定时器
