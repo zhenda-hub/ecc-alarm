@@ -12,7 +12,7 @@ const TASK_URLS = {
 };
 
 // 日志功能相关变量
-let currentLogFile = '';
+// let currentLogFile = '';
 let logStream = null;
 
 // 从远程API获取任务数据
@@ -158,7 +158,7 @@ function writeLog(type, message) {
 
 let mainWindow;
 let notificationWindow = null;
-let hiddenNotificationWindow = null;  // 预加载的通知窗口
+// let hiddenNotificationWindow = null;  // 预加载的通知窗口
 let notificationQueue = [];
 let config = null;
 let dailyFetchTimeout = null; // 每日任务获取定时器
@@ -179,7 +179,7 @@ function createMainWindow() {
     // 加载首页
     mainWindow.loadFile('index.html');
     
-    // 跨平台菜单配置
+    // app 菜单配置
     const isMac = process.platform === 'darwin';
     const menuTemplate = [
         ...(isMac ? [{
@@ -341,9 +341,9 @@ function getConfigPath() {
     return path.join(userDataPath, 'config.json');
 }
 
-// 重新加载配置
+// 加载配置
 async function loadConfig() {
-    writeLog('INFO', '开始重新加载配置');
+    writeLog('INFO', '开始加载配置');
     try {
         const taskData = await fetchAllTasks();
         
@@ -386,178 +386,178 @@ async function loadConfig() {
 }
 
 // 跨平台默认配置复制
-function copyDefaultConfigFromResources() {
-    let defaultConfigPath;
+// function copyDefaultConfigFromResources() {
+//     let defaultConfigPath;
     
-    if (app.isPackaged) {
-        // 生产环境：从资源目录读取
-        defaultConfigPath = path.join(process.resourcesPath, 'config.json');
-    } else {
-        // 开发环境：从项目目录读取
-        defaultConfigPath = path.join(__dirname, 'config.json');
-    }
+//     if (app.isPackaged) {
+//         // 生产环境：从资源目录读取
+//         defaultConfigPath = path.join(process.resourcesPath, 'config.json');
+//     } else {
+//         // 开发环境：从项目目录读取
+//         defaultConfigPath = path.join(__dirname, 'config.json');
+//     }
     
-    const userConfigPath = getConfigPath();
+//     const userConfigPath = getConfigPath();
     
-    try {
-        if (fs.existsSync(defaultConfigPath)) {
-            // 确保用户数据目录存在
-            const userDataDir = path.dirname(userConfigPath);
-            if (!fs.existsSync(userDataDir)) {
-                fs.mkdirSync(userDataDir, { recursive: true });
-            }
+//     try {
+//         if (fs.existsSync(defaultConfigPath)) {
+//             // 确保用户数据目录存在
+//             const userDataDir = path.dirname(userConfigPath);
+//             if (!fs.existsSync(userDataDir)) {
+//                 fs.mkdirSync(userDataDir, { recursive: true });
+//             }
             
-            // 复制配置文件
-            fs.copyFileSync(defaultConfigPath, userConfigPath);
-            console.log('默认配置文件已复制到:', userConfigPath);
+//             // 复制配置文件
+//             fs.copyFileSync(defaultConfigPath, userConfigPath);
+//             console.log('默认配置文件已复制到:', userConfigPath);
             
-            // 重新加载
-            loadConfig();
-        } else {
-            console.log('未找到默认配置文件，创建内置配置');
-            createDefaultConfig();
-        }
-    } catch (error) {
-        console.error('复制默认配置失败:', error);
-        createDefaultConfig();
-    }
-}
+//             // 重新加载
+//             loadConfig();
+//         } else {
+//             console.log('未找到默认配置文件，创建内置配置');
+//             createDefaultConfig();
+//         }
+//     } catch (error) {
+//         console.error('复制默认配置失败:', error);
+//         createDefaultConfig();
+//     }
+// }
 
-function createDefaultConfig() {
-    const defaultConfig = {
-        "notifications": [
-            {
-                "id": "morning_reminder",
-                "title": "晨间提醒",
-                "message": "新的一天开始了！\n请检查今日工作计划",
-                "time": "09:00",
-                "enabled": true,
-                "repeat": "daily"
-            },
-            {
-                "id": "lunch_break",
-                "title": "午餐休息",
-                "message": "该休息一下了！\n记得按时吃午餐，保持健康",
-                "time": "12:00",
-                "enabled": true,
-                "repeat": "daily"
-            },
-            {
-                "id": "afternoon_reminder",
-                "title": "下午提醒",
-                "message": "下午时光，继续加油！\n记得多喝水，保护眼睛",
-                "time": "15:00",
-                "enabled": true,
-                "repeat": "daily"
-            }
-        ],
-        "settings": {
-            "defaultInterval": 30,
-            "timezone": "Asia/Shanghai",
-            "enableSound": true,
-            "testMode": false
-        }
-    };
+// function createDefaultConfig() {
+//     const defaultConfig = {
+//         "notifications": [
+//             {
+//                 "id": "morning_reminder",
+//                 "title": "晨间提醒",
+//                 "message": "新的一天开始了！\n请检查今日工作计划",
+//                 "time": "09:00",
+//                 "enabled": true,
+//                 "repeat": "daily"
+//             },
+//             {
+//                 "id": "lunch_break",
+//                 "title": "午餐休息",
+//                 "message": "该休息一下了！\n记得按时吃午餐，保持健康",
+//                 "time": "12:00",
+//                 "enabled": true,
+//                 "repeat": "daily"
+//             },
+//             {
+//                 "id": "afternoon_reminder",
+//                 "title": "下午提醒",
+//                 "message": "下午时光，继续加油！\n记得多喝水，保护眼睛",
+//                 "time": "15:00",
+//                 "enabled": true,
+//                 "repeat": "daily"
+//             }
+//         ],
+//         "settings": {
+//             "defaultInterval": 30,
+//             "timezone": "Asia/Shanghai",
+//             "enableSound": true,
+//             "testMode": false
+//         }
+//     };
     
-    try {
-        const configPath = getConfigPath();
-        const configDir = path.dirname(configPath);
+//     try {
+//         const configPath = getConfigPath();
+//         const configDir = path.dirname(configPath);
         
-        if (!fs.existsSync(configDir)) {
-            fs.mkdirSync(configDir, { recursive: true });
-            writeLog('INFO', '创建配置目录', { path: configDir });
-        }
+//         if (!fs.existsSync(configDir)) {
+//             fs.mkdirSync(configDir, { recursive: true });
+//             writeLog('INFO', '创建配置目录', { path: configDir });
+//         }
         
-        fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2), 'utf8');
-        config = defaultConfig;
-        writeLog('INFO', '创建默认配置', {
-            path: configPath,
-            notificationCount: defaultConfig.notifications.length,
-            settings: defaultConfig.settings
-        });
-        setupScheduledNotifications();
-    } catch (error) {
-        writeLog('ERROR', '创建配置文件失败', {
-            path: getConfigPath(),
-            error: error.message
-        });
-        config = defaultConfig;
-    }
-}
+//         fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2), 'utf8');
+//         config = defaultConfig;
+//         writeLog('INFO', '创建默认配置', {
+//             path: configPath,
+//             notificationCount: defaultConfig.notifications.length,
+//             settings: defaultConfig.settings
+//         });
+//         setupScheduledNotifications();
+//     } catch (error) {
+//         writeLog('ERROR', '创建配置文件失败', {
+//             path: getConfigPath(),
+//             error: error.message
+//         });
+//         config = defaultConfig;
+//     }
+// }
 
-function setupScheduledNotifications() {
-    scheduledNotifications.forEach(scheduled => {
-        if (scheduled.timeout) clearTimeout(scheduled.timeout);
-        if (scheduled.interval) clearInterval(scheduled.interval);
-    });
-    scheduledNotifications = [];
+// function setupScheduledNotifications() {
+//     scheduledNotifications.forEach(scheduled => {
+//         if (scheduled.timeout) clearTimeout(scheduled.timeout);
+//         if (scheduled.interval) clearInterval(scheduled.interval);
+//     });
+//     scheduledNotifications = [];
     
-    if (!config || !config.notifications) return;
+//     if (!config || !config.notifications) return;
     
-    config.notifications.forEach(notificationConfig => {
-        if (!notificationConfig.enabled) return;
+//     config.notifications.forEach(notificationConfig => {
+//         if (!notificationConfig.enabled) return;
         
-        if (notificationConfig.repeat === 'daily' && notificationConfig.time) {
-            setupDailyNotification(notificationConfig);
-        } else if (notificationConfig.repeat === 'interval' && notificationConfig.interval) {
-            setupIntervalNotification(notificationConfig);
-        }
-    });
+//         if (notificationConfig.repeat === 'daily' && notificationConfig.time) {
+//             setupDailyNotification(notificationConfig);
+//         } else if (notificationConfig.repeat === 'interval' && notificationConfig.interval) {
+//             setupIntervalNotification(notificationConfig);
+//         }
+//     });
     
-    console.log(`已设置 ${scheduledNotifications.length} 个定时通知`);
-}
+//     console.log(`已设置 ${scheduledNotifications.length} 个定时通知`);
+// }
 
 // 设置每日定时通知
-function setupDailyNotification(notificationConfig) {
-    const [hour, minute] = notificationConfig.time.split(':').map(Number);
+// function setupDailyNotification(notificationConfig) {
+//     const [hour, minute] = notificationConfig.time.split(':').map(Number);
     
-    function scheduleNext() {
-        const now = new Date();
-        const scheduledTime = new Date();
-        scheduledTime.setHours(hour, minute, 0, 0);
+//     function scheduleNext() {
+//         const now = new Date();
+//         const scheduledTime = new Date();
+//         scheduledTime.setHours(hour, minute, 0, 0);
         
-        if (scheduledTime <= now) {
-            scheduledTime.setDate(scheduledTime.getDate() + 1);
-        }
+//         if (scheduledTime <= now) {
+//             scheduledTime.setDate(scheduledTime.getDate() + 1);
+//         }
         
-        const delay = scheduledTime.getTime() - now.getTime();
+//         const delay = scheduledTime.getTime() - now.getTime();
         
-        const timeout = setTimeout(() => {
-            addNotification(notificationConfig.message, notificationConfig.title);
-            scheduleNext();
-        }, delay);
+//         const timeout = setTimeout(() => {
+//             addNotification(notificationConfig.message, notificationConfig.title);
+//             scheduleNext();
+//         }, delay);
         
-        scheduledNotifications.push({
-            id: notificationConfig.id,
-            type: 'daily',
-            timeout: timeout
-        });
+//         scheduledNotifications.push({
+//             id: notificationConfig.id,
+//             type: 'daily',
+//             timeout: timeout
+//         });
         
-        console.log(`${notificationConfig.title} 已安排在 ${scheduledTime.toLocaleString()}`);
-    }
+//         console.log(`${notificationConfig.title} 已安排在 ${scheduledTime.toLocaleString()}`);
+//     }
     
-    scheduleNext();
-}
+//     scheduleNext();
+// }
 
 // 设置间隔重复通知
-function setupIntervalNotification(notificationConfig) {
-    const intervalMs = (notificationConfig.interval || config.settings.defaultInterval) * 1000;
-    let count = 0;
+// function setupIntervalNotification(notificationConfig) {
+//     const intervalMs = (notificationConfig.interval || config.settings.defaultInterval) * 1000;
+//     let count = 0;
     
-    const interval = setInterval(() => {
-        count++;
-        const message = notificationConfig.message.replace('{count}', count);
-        addNotification(message, notificationConfig.title);
-    }, intervalMs);
+//     const interval = setInterval(() => {
+//         count++;
+//         const message = notificationConfig.message.replace('{count}', count);
+//         addNotification(message, notificationConfig.title);
+//     }, intervalMs);
     
-    scheduledNotifications.push({
-        id: notificationConfig.id,
-        type: 'interval',
-        interval: interval
-    });
+//     scheduledNotifications.push({
+//         id: notificationConfig.id,
+//         type: 'interval',
+//         interval: interval
+//     });
     
-    console.log(`${notificationConfig.title} 间隔通知已启动 (${notificationConfig.interval}秒)`);
-}
+//     console.log(`${notificationConfig.title} 间隔通知已启动 (${notificationConfig.interval}秒)`);
+// }
 
 function addNotification(message, title = '系统通知') {
     const notification = {
@@ -578,45 +578,45 @@ function addNotification(message, title = '系统通知') {
 }
 
 // 启动定时通知系统
-function startTimer() {
-    stopTimer();
+// function startTimer() {
+//     stopTimer();
     
-    if (!config) {
-        writeLog('WARN', '配置未加载，启动默认定时器', {
-            interval: '30秒',
-            type: 'default'
-        });
-        let count = 0;
-        timerInterval = setInterval(() => {
-            count++;
-            addNotification(`定时提醒 #${count}\n\n请及时处理相关事务！\n\n时间: ${new Date().toLocaleString()}`);
-        }, 30000);
-        return;
-    }
+//     if (!config) {
+//         writeLog('WARN', '配置未加载，启动默认定时器', {
+//             interval: '30秒',
+//             type: 'default'
+//         });
+//         let count = 0;
+//         timerInterval = setInterval(() => {
+//             count++;
+//             addNotification(`定时提醒 #${count}\n\n请及时处理相关事务！\n\n时间: ${new Date().toLocaleString()}`);
+//         }, 30000);
+//         return;
+//     }
     
-    setupScheduledNotifications();
-    writeLog('INFO', '定时通知系统启动', {
-        notificationCount: config.notifications.length,
-        enabledCount: config.notifications.filter(n => n.enabled).length,
-        settings: config.settings
-    });
-}
+//     setupScheduledNotifications();
+//     writeLog('INFO', '定时通知系统启动', {
+//         notificationCount: config.notifications.length,
+//         enabledCount: config.notifications.filter(n => n.enabled).length,
+//         settings: config.settings
+//     });
+// }
 
 // 停止所有定时通知任务
-function stopTimer() {
-    if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-    }
+// function stopTimer() {
+//     if (timerInterval) {
+//         clearInterval(timerInterval);
+//         timerInterval = null;
+//     }
     
-    scheduledNotifications.forEach(scheduled => {
-        if (scheduled.timeout) clearTimeout(scheduled.timeout);
-        if (scheduled.interval) clearInterval(scheduled.interval);
-    });
-    scheduledNotifications = [];
+//     scheduledNotifications.forEach(scheduled => {
+//         if (scheduled.timeout) clearTimeout(scheduled.timeout);
+//         if (scheduled.interval) clearInterval(scheduled.interval);
+//     });
+//     scheduledNotifications = [];
     
-    console.log('所有定时通知已停止');
-}
+//     console.log('所有定时通知已停止');
+// }
 
 // 创建全屏通知窗口
 function createNotificationWindow() {
@@ -793,7 +793,7 @@ ipcMain.on('notification-confirmed', (event, notificationId) => {
     }
 });
 
-// 跨平台应用生命周期处理
+// app 生命周期处理
 app.whenReady().then(() => {
     console.log('应用启动');
     console.log('应用目录:', __dirname);
