@@ -95,13 +95,42 @@ async function fetchAllTasks() {
         // 记录详细的任务信息
         writeLog('DEBUG', '完整任务列表: ' + JSON.stringify(allTasks, null, 2));
         
-        return {
+        // 创建新的配置对象
+        const newConfig = {
+            lastUpdate: new Date().toISOString(),
             tasks: allTasks,
-            timestamp: new Date().toISOString()
+            settings: {
+                backgroundColor: '#c62828',
+                windowScale: 'fullscreen'
+            }
         };
+        
+        // 保存到配置文件
+        const configPath = getConfigPath();
+        try {
+            fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), 'utf8');
+            writeLog('INFO', `配置文件已更新: ${configPath}`);
+        } catch (saveError) {
+            writeLog('ERROR', `保存配置文件失败: ${saveError.message}`);
+        }
+        
+        return newConfig;
     } catch (error) {
         writeLog('ERROR', `获取任务失败: ${error.message}`);
         writeLog('ERROR', `错误详情: ${error.stack || '无堆栈信息'}`);
+        
+        // 尝试加载现有配置
+        try {
+            const configPath = getConfigPath();
+            if (fs.existsSync(configPath)) {
+                const existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                writeLog('WARN', '使用现有配置文件');
+                return existingConfig;
+            }
+        } catch (readError) {
+            writeLog('ERROR', `读取现有配置失败: ${readError.message}`);
+        }
+        
         throw error;
     }
 }
