@@ -530,9 +530,10 @@ function setupScheduledNotifications() {
         
         if (notificationConfig.repeat === 'daily' && notificationConfig.time) {
             setupDailyNotification(notificationConfig);
-        } else if (notificationConfig.repeat === 'interval' && notificationConfig.interval) {
-            setupIntervalNotification(notificationConfig);
         }
+        // else if (notificationConfig.repeat === 'interval' && notificationConfig.interval) {
+        //     setupIntervalNotification(notificationConfig);
+        // }
     });
     
     writeLog('INFO', `已设置 ${scheduledNotifications.length} 个定时通知`);
