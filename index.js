@@ -389,9 +389,12 @@ async function loadConfig() {
                     writeLog('INFO', `- ${notification.title} (${notification.time}) [${notification.enabled ? '启用' : '禁用'}]`);
                 });
             }
-            
+            // TODO
             writeLog('INFO', `从配置文件加载了 ${fileConfig.tasks?.length || 0} 条任务`);
             config = fileConfig;
+            
+            // 启动定时通知系统
+            setupScheduledNotifications();
             return config;
         } else {
             writeLog('ERROR', '配置文件不存在');
@@ -503,59 +506,73 @@ async function loadConfig() {
 //     }
 // }
 
-// function setupScheduledNotifications() {
-//     scheduledNotifications.forEach(scheduled => {
-//         if (scheduled.timeout) clearTimeout(scheduled.timeout);
-//         if (scheduled.interval) clearInterval(scheduled.interval);
-//     });
-//     scheduledNotifications = [];
+function setupScheduledNotifications() {
+    // 清除现有的所有定时器
+    if (typeof scheduledNotifications !== 'undefined') {
+        scheduledNotifications.forEach(scheduled => {
+            if (scheduled.timeout) clearTimeout(scheduled.timeout);
+            if (scheduled.interval) clearInterval(scheduled.interval);
+        });
+    }
+    scheduledNotifications = [];
     
-//     if (!config || !config.notifications) return;
+    if (!config || !config.notifications) {
+        writeLog('WARN', '没有找到通知配置');
+        return;
+    }
     
-//     config.notifications.forEach(notificationConfig => {
-//         if (!notificationConfig.enabled) return;
+    writeLog('INFO', '开始设置定时通知');
+    config.notifications.forEach(notificationConfig => {
+        if (!notificationConfig.enabled) {
+            writeLog('INFO', `跳过禁用的通知: ${notificationConfig.title}`);
+            return;
+        }
         
-//         if (notificationConfig.repeat === 'daily' && notificationConfig.time) {
-//             setupDailyNotification(notificationConfig);
-//         } else if (notificationConfig.repeat === 'interval' && notificationConfig.interval) {
-//             setupIntervalNotification(notificationConfig);
-//         }
-//     });
+        if (notificationConfig.repeat === 'daily' && notificationConfig.time) {
+            setupDailyNotification(notificationConfig);
+        } else if (notificationConfig.repeat === 'interval' && notificationConfig.interval) {
+            setupIntervalNotification(notificationConfig);
+        }
+    });
     
-//     console.log(`已设置 ${scheduledNotifications.length} 个定时通知`);
-// }
+    writeLog('INFO', `已设置 ${scheduledNotifications.length} 个定时通知`);
+}
 
 // 设置每日定时通知
-// function setupDailyNotification(notificationConfig) {
-//     const [hour, minute] = notificationConfig.time.split(':').map(Number);
+function setupDailyNotification(notificationConfig) {
+    const [hour, minute] = notificationConfig.time.split(':').map(Number);
     
-//     function scheduleNext() {
-//         const now = new Date();
-//         const scheduledTime = new Date();
-//         scheduledTime.setHours(hour, minute, 0, 0);
+    function scheduleNext() {
+        const now = new Date();
+        const scheduledTime = new Date();
+        scheduledTime.setHours(hour, minute, 0, 0);
         
-//         if (scheduledTime <= now) {
-//             scheduledTime.setDate(scheduledTime.getDate() + 1);
-//         }
+        if (scheduledTime <= now) {
+            scheduledTime.setDate(scheduledTime.getDate() + 1);
+        }
         
-//         const delay = scheduledTime.getTime() - now.getTime();
+        const delay = scheduledTime.getTime() - now.getTime();
+        const minutesUntilNext = Math.floor(delay / 1000 / 60);
         
-//         const timeout = setTimeout(() => {
-//             addNotification(notificationConfig.message, notificationConfig.title);
-//             scheduleNext();
-//         }, delay);
+        writeLog('INFO', `安排定时通知: ${notificationConfig.title}`, {
+            scheduledTime: scheduledTime.toLocaleString(),
+            minutesRemaining: minutesUntilNext
+        });
         
-//         scheduledNotifications.push({
-//             id: notificationConfig.id,
-//             type: 'daily',
-//             timeout: timeout
-//         });
+        const timeout = setTimeout(() => {
+            addNotification(notificationConfig.message, notificationConfig.title);
+            scheduleNext();
+        }, delay);
         
-//         console.log(`${notificationConfig.title} 已安排在 ${scheduledTime.toLocaleString()}`);
-//     }
+        scheduledNotifications.push({
+            id: notificationConfig.id,
+            type: 'daily',
+            timeout: timeout
+        });
+    }
     
-//     scheduleNext();
-// }
+    scheduleNext();
+}
 
 // 设置间隔重复通知
 // function setupIntervalNotification(notificationConfig) {
