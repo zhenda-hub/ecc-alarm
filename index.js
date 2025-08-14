@@ -381,6 +381,15 @@ async function loadConfig() {
     try {
         if (fs.existsSync(configPath)) {
             const fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            
+            // 记录配置文件中的通知设置
+            if (fileConfig.notifications && Array.isArray(fileConfig.notifications)) {
+                writeLog('INFO', '配置文件中的通知设置:');
+                fileConfig.notifications.forEach(notification => {
+                    writeLog('INFO', `- ${notification.title} (${notification.time}) [${notification.enabled ? '启用' : '禁用'}]`);
+                });
+            }
+            
             writeLog('INFO', `从配置文件加载了 ${fileConfig.tasks?.length || 0} 条任务`);
             config = fileConfig;
             return config;
