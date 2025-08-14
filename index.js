@@ -153,6 +153,45 @@ function createMainWindow() {
                         require('electron').shell.openPath(logsDir);
                     }
                 },
+                {
+                    label: '使用说明',
+                    click: () => {
+                        writeLog('INFO', '显示使用说明');
+                        require('electron').dialog.showMessageBox(mainWindow, {
+                            type: 'info',
+                            title: '使用说明',
+                            message: 'ECC 桌面提醒系统使用说明',
+                            detail: `1. 配置文件位置：
+- Windows: %APPDATA%\\ecc-alarm\\config.json
+- Linux: ~/.config/ecc-alarm/config.json
+- macOS: ~/Library/Application Support/ecc-alarm/config.json
+
+2. 配置文件格式：
+- 支持每日定时通知
+- 支持间隔重复通知
+- 通知内容支持换行
+
+`
+// 3. 日志文件：
+// - 按周自动分割
+// - 记录所有操作和通知状态
+                        });
+                    }
+                },
+                {
+                    label: '快捷键说明',
+                    click: () => {
+                        writeLog('INFO', '显示快捷键说明');
+                        require('electron').dialog.showMessageBox(mainWindow, {
+                            type: 'info',
+                            title: '快捷键说明',
+                            message: '快捷键列表',
+                            detail: `Ctrl/Cmd + T: 发送测试通知
+Ctrl/Cmd + R: 重新加载配置
+Ctrl/Cmd + Q: 退出程序（Windows）`
+                        });
+                    }
+                },
                 { type: 'separator' },
                 {
                     label: '关于',
